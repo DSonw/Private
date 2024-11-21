@@ -50,6 +50,7 @@ class RUN:
         try:
             while attempts < max_attempts:
                 response = self.s.post(url, data=payload, headers=self.headers)
+                # print(response.text)
                 if response.json()['code'] == 402:
                     print('✨✨✨状态码 402，正在更新数据...✨✨✨')
                     self.UpdateData()
@@ -57,6 +58,9 @@ class RUN:
                     return response
                     break
                 elif response.json()['code'] == -1:
+                    return response
+                    break
+                elif response.json()['success'] == True:
                     return response
                     break
                 else:
@@ -184,7 +188,7 @@ class RUN:
         try:
             for i in range(6):
                 response = self.do_request(url, payload)
-                print(response.text)
+                # print(response.text)
                 if response != None and response.json()['success'] == True:
                     print(
                         f"✨✨✨恭喜你抽中了{response.json()['data']['name']}，数量为{response.json()['data']['number']}✨✨✨")
@@ -200,6 +204,7 @@ class RUN:
                 time.sleep(1)
         except Exception as e:
             print(e)
+            print("999")
         time.sleep(1)
 
 
@@ -217,7 +222,10 @@ class RUN:
         time.sleep(0.3)
         self.RedPacket()#拆红包
         print(f"✨✨✨重新检查一次第{self.index}个账号任务情况✨✨✨")
+        time.sleep(0.5)
         self.GetTaskList()  # 查询任务
+        time.sleep(0.5)
+        self.PointsInquiry()#获取积分
         return True
 
 
