@@ -47,36 +47,42 @@ class RUN:
     def do_request(self, url, payload,):
         max_attempts = 2
         attempts = 0
-        try:
-            while attempts < max_attempts:
-                response = self.s.post(url, data=payload, headers=self.headers)
-                # print(response.text)
-                if response.json()['code'] == 402:
-                    print('✨✨✨状态码 402，正在更新数据...✨✨✨')
+        while attempts < max_attempts:
+            try:
+                response = self.s.post(url, data=payload, headers=self.headers, timeout=15)
+                if not response.ok:
+                    print(f"⚠️ 请求失败，状态码：{response.status_code}")
+                    return None
+
+                response_data = response.json()
+                
+                if "deficiencyBack" in response.text:
+                    return response
+                    
+                # 处理已知状态码
+                code = response_data.get('code')
+                if code == 402:
+                    print('🔄 触发402状态码，执行数据更新...')
                     self.UpdateData()
-                elif response.json()['code'] == 200:
+                elif code in (200, -1):
                     return response
-                    break
-                elif response.json()['code'] == -1:
-                    return response
-                    break
-                elif response.json()['success'] == True:
-                    return response
-                    break
                 else:
-                    print(f'✨✨✨请求失败，返回内容：{response.text}✨✨✨')
-                    break
-                attempts += 1
-                time.sleep(1)
-            if attempts == max_attempts:
-                print('已达到最大尝试次数。')
-                return None
-        except requests.exceptions.RequestException as e:
-            print('Request failed:', e)
-            return None
-        except json.JSONDecodeError as e:
-            print('JSON decoding failed:', e)
-            return None
+                    print(f"⚠️ 未知响应状态码：{code}，响应内容：{response.text}")
+                    
+                return response
+
+            except requests.exceptions.RequestException as e:
+                print(f"🌐 网络请求异常：{str(e)}")
+            except json.JSONDecodeError:
+                print("🔠 响应解析失败，非JSON格式")
+            except KeyError as e:
+                print(f"🔑 JSON字段缺失：{str(e)}")
+                
+            attempts += 1
+            print(f"🔄 正在进行第{attempts}次重试...")
+            time.sleep(3)
+        print("⚠️ 已达到最大重试次数")
+        return None
 
 
     #积分查询
@@ -92,11 +98,25 @@ class RUN:
 
     #更新token
     def UpdateData(self):
-        url = "https://appapi.lvcchong.com/appBaseApi/h5/accessEntrance"
-        payload = f"phone={self.phone}&userId={self.userId}&ownerId=0&time=" + self.Timestamp()
-        response =  self.s.post( url, data=payload, headers=self.headers)
-        # print(response.json()['data']['userToken'])
-        self.headers["token"] = response.json()['data']['userToken']
+        try:
+            url = "https://appapi.lvcchong.com/appBaseApi/h5/accessEntrance"
+            payload = f"phone={self.phone}&userId={self.userId}&ownerId=0&time=" + self.Timestamp()
+            response = self.s.post(url, data=payload, headers=self.headers, timeout=10)
+            
+            if response.status_code != 200:
+                print(f"⚠️ 更新token失败，HTTP状态码：{response.status_code}")
+                return
+            
+            response_data = response.json().get('data', {})
+            new_token = response_data.get('userToken')
+            
+            if new_token:
+                self.headers["token"] = new_token
+                print("✅ Token更新成功")
+            else:
+                print("⚠️ 获取到空Token，保持原Token")
+        except Exception as e:
+            print(f"🔥 更新Token时发生异常：{str(e)}")
 
     #获取时间戳
     def Timestamp(self):
@@ -189,7 +209,7 @@ class RUN:
             for i in range(6):
                 response = self.do_request(url, payload)
                 # print(response.text)
-                if response != None and response.json()['success'] == True:
+                if "deficiencyBack" in response.text:
                     print(
                         f"✨✨✨恭喜你抽中了{response.json()['data']['name']}，数量为{response.json()['data']['number']}✨✨✨")
                     random_delay = random.uniform(30, 40)
@@ -204,7 +224,7 @@ class RUN:
                 time.sleep(1)
         except Exception as e:
             print(e)
-            print("999")
+            # print("999")
         time.sleep(1)
 
 
@@ -262,8 +282,14 @@ if __name__ == '__main__':
     if len(tokens) > 0:
         print(f"\n>>>>>>>>>>共获取到{len(tokens)}个账号<<<<<<<<<<")
         for index, token in enumerate(tokens):
-            run_result = RUN(token,index).main()
-            if not run_result:
+            try:
+                if not token.strip():
+                    print(f"第{index+1}个账号参数为空，跳过")
+                    continue
+                RUN(token, index).main()
+            except Exception as e:
+                print(f"\n❌❌❌ 第{index+1}个账号执行时发生未捕获的异常，错误信息：{str(e)}")
+                print("❗️❗️❗️ 发生错误但已捕获，继续执行下一个账号...")
                 continue
 
 
