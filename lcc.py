@@ -5,6 +5,7 @@
 设置青龙变量：{lvtoken}：token#phone#userId
 多账号@、换行分割
 每天跑一到两次就行
+如果要开启兑换请设置青龙变量：{SF_IS_EXCHANGE}：true；默认false
 """
 # cron: 11 6,9,12,15,18 * * *
 # const $ = new Env("顺丰速运");
@@ -23,7 +24,7 @@ os.environ['NEW_VAR'] = 'lvtoken'  # 环境变量
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-
+IS_EXCHANGE = os.environ.get('SF_IS_EXCHANGE', 'false').lower() == 'true'
 
 class RUN:
     def __init__(self,token,index):
@@ -227,7 +228,24 @@ class RUN:
             # print("999")
         time.sleep(1)
 
-
+    # 兑换功能
+    def Exchange(self):
+        try:
+            url = "https://appapi.lvcchong.com/appBaseApi/scoreUser/score/createScoreOrder"
+            payload = "id=855&price=2000&purchaseNumber=1&orderSource=3&channelName=%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F"
+            
+            # 强制更新token（即使main里有更新也再更新一次）
+            self.UpdateData()
+            
+            response = self.do_request(url, payload)
+            if response and response.status_code == 200:
+                message = response.json().get('message', '未知返回')
+                print(f"🛒 兑换结果：{message}")
+                return True
+            return False
+        except Exception as e:
+            print(f"🔥 兑换过程中发生异常：{str(e)}")
+            return False
 
 
 
@@ -253,6 +271,10 @@ class RUN:
 
 
 
+
+
+
+
 if __name__ == '__main__':
     APP_NAME = '驴充充'
     ENV_NAME = 'lvtoken'
@@ -272,26 +294,71 @@ if __name__ == '__main__':
         多账号@、换行分割
     ✨✨✨ ✨✨✨
         ''')
+    
+    # 新增兑换模式开关
+    IS_EXCHANGE = os.environ.get('SF_IS_EXCHANGE', 'false').lower() == 'true'
+    
     # 分割变量
     if ENV_NAME in os.environ:
-        tokens = re.split("@|\n", os.environ.get(ENV_NAME))
+        tokens = [t.strip() for t in re.split("@|\n", os.environ.get(ENV_NAME)) if t.strip()]
     else:
-        tokens = ['']
-        print(f'无{ENV_NAME}变量')
+        tokens = []
+        print(f'❌ 未找到{ENV_NAME}环境变量')
         exit()
-    if len(tokens) > 0:
-        print(f"\n>>>>>>>>>>共获取到{len(tokens)}个账号<<<<<<<<<<")
+
+    if not tokens:
+        print("⚠️ 未检测到有效的账号配置")
+        exit()
+
+    # 兑换模式特殊处理
+    if IS_EXCHANGE:
+        print("\n🔵🔵🔵 当前处于积分兑换模式 🔵🔵🔵")
+        print("❗ 注意：此模式将优先执行所有账号的兑换操作")
+
+
+        # ================= 第一阶段：执行所有账号的兑换 =================
+        print("\n" + "="*30)
+        print("💰 开始处理所有账号的兑换操作")
+        print("="*30)
         for index, token in enumerate(tokens):
             try:
-                if not token.strip():
-                    print(f"第{index+1}个账号参数为空，跳过")
-                    continue
-                RUN(token, index).main()
+                print(f"\n▶▶ 正在处理第{index+1}/{len(tokens)}个账号的兑换 ◀◀")
+                runner = RUN(token, index)
+                # 强制更新token保证兑换有效性
+                runner.UpdateData()
+                exchange_result = runner.Exchange()
+                if exchange_result:
+                    print(f"✅ 第{index+1}个账号兑换操作完成")
+                else:
+                    print(f"⛔ 第{index+1}个账号兑换操作失败")
+                # 账号间随机间隔
+                if index != len(tokens)-1:
+                    time.sleep(random.randint(1, 3))
             except Exception as e:
-                print(f"\n❌❌❌ 第{index+1}个账号执行时发生未捕获的异常，错误信息：{str(e)}")
-                print("❗️❗️❗️ 发生错误但已捕获，继续执行下一个账号...")
+                print(f"\n❌ 第{index+1}个账号兑换时发生异常：{str(e)}")
                 continue
 
+        print("\n" + "="*30)
+        print("✅✅ 所有账号兑换操作已完成 ✅✅")
+        print("="*30)
+        print("🔄 10秒后开始执行常规任务...")
+        time.sleep(10)
+
+    # ================= 第二阶段：执行所有账号的常规任务 =================
+    print("\n" + "="*30)
+    print(f"🏃 开始处理所有账号的常规任务（共{len(tokens)}个账号）")
+    print("="*30)
+    for index, token in enumerate(tokens):
+        try:
+            print(f"\n▶▶ 正在处理第{index+1}/{len(tokens)}个账号的常规任务 ◀◀")
+            runner = RUN(token, index)
+            runner.main()
+            # 账号间随机间隔
+            if index != len(tokens)-1:
+                time.sleep(random.randint(3, 8))
+        except Exception as e:
+            print(f"\n❌ 第{index+1}个账号执行常规任务时发生异常：{str(e)}")
+            continue
 
 
 
