@@ -30,10 +30,10 @@ os.environ['NEW_VAR'] = 'tutuuid'
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 class Color:
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
+    CYAN = '\033[96m\033[2m'
+    GREEN = '\033[92m\033[2m'
+    YELLOW = '\033[93m\033[2m'
+    RED = '\033[91m\033[2m'
     BOLD = '\033[1m'
     END = '\033[0m'
 
